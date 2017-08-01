@@ -4,6 +4,7 @@ var ZhuQuery = (function () {
     return $.init(selector);
   };
 
+  //初始化
   $.init = function (selector) {
     let identifier = selector.charAt(0);
     switch (identifier) {
@@ -12,17 +13,57 @@ var ZhuQuery = (function () {
       case '#':
         return new Elements(document.getElementById(selector.slice(1)));
       default:
-        return new Elements(document.getElementsByTagName(selector));
+        return new Elements(document.querySelectorAll(selector));
     };
   };
 
-  $.ajax = function () {
-
+  //封装遍历方法，针对Elements类，定制遍历方式
+  $.each = function (items, callback) {
+    if (Array.isArray(items)) {
+      items.forEach((item, index) => {
+        if (callback.call(item, index, item) === false)
+          return items;
+      });
+    } else {
+      for (key in items) {
+        if (items instanceof Elements) {
+          if (Number.isInteger(parseInt(key))) {
+            if (callback.call(items[key], key, items[key]) === false)
+              return items;
+          }
+        } else {
+          if (callback.call(items[key], key, items[key]) === false)
+            return items;
+        }
+      }
+    }
   };
 
+  $.isArray = function (array) {
+    return Array.isArray(array);
+  };
+
+  //事件类
+  let Events = function () {
+    this.on = function (eventName, handler) {
+      $.each(this, function (key, item) {
+        item.addEventListener(eventName, handler);
+      });
+      return this;
+    };
+    this.off = function (eventName, handler) {
+      $.each(this, function (key, item) {
+        tem.removeEventListener(eventName, handler);
+      });
+      return this;
+    };
+  };
+
+  //元素类
   let Elements = function (elements) {
+    Events.call(this);
     if (elements) {
-      if (elements.length) {
+      if (elements.length >= 0) {
         for (let i = 0; i < elements.length; i++) {
           this[i] = elements[i];
         }
@@ -32,21 +73,65 @@ var ZhuQuery = (function () {
         this.length = 1;
       }
     } else {
-      this[0] = null;
       this.length = 0;
     }
   };
 
+  //获取当前元素集的兄弟元素
+  Elements.prototype.siblings = function () {
+    let result = [];
+    for (let i = 0; i < this.length; i++) {
+      let sib = [...this[i].parentNode.children].filter(child => child !== this[i]);
+      result = result.concat(sib);
+    }
+    return Array.from(new Set(result));
+  };
+
+  //获取当前元素集的上一个元素(集)
+  Elements.prototype.prev = function () {
+    let result = [];
+    for (let i = 0; i < this.length; i++) {
+      let preSib = this[i].previousElementSibling;
+      result = result.concat(preSib);
+    }
+    return result;
+  };
+
+  //获取当前元素集的下一个元素(集)
+  Elements.prototype.next = function () {
+    let result = [];
+    for (let i = 0; i < this.length; i++) {
+      let preSib = this[i].nextElementSibling;
+      result = result.concat(preSib);
+    }
+    return result;
+  };
+
+  //控制元素不可见
   Elements.prototype.show = function () {
     this.css('display', 'block');
     return this;
   };
 
+  //控制元素可见
   Elements.prototype.hide = function () {
     this.css('display', 'none');
     return this;
   };
 
+  //传参时，设置元素的value；不传参时，获取第一个元素的value
+  Elements.prototype.val = function (value) {
+    if (value) {
+      $.each(this, function (key, item) {
+        item.value = value;
+      });
+      return this;
+    } else {
+      return this.length === 0 ? null : this[0].value;
+    }
+  };
+
+  //传参时，设置元素的innerHTML；不传参时，获取第一个元素的innerHTML
   Elements.prototype.html = function (innerHTML) {
     if (innerHTML) {
       for (let i = 0; i < this.length; i++) {
@@ -70,10 +155,67 @@ var ZhuQuery = (function () {
     }
   };
 
+  //传一个参数时，获取第一个元素属性值；传两个参数时，设置元素集的对应属性值
+  Elements.prototype.attr = function (name, value) {
+    if (value !== undefined) {
+      $.each(this, function (key, item) {
+        value === null ? item.removeAttribute(name) : item.setAttribute(name, value);
+      });
+      return this;
+    } else {
+      return this.length === 0 ? null : this[0].getAttribute(name);
+    }
+  };
+
+  //获取或设置 'data-' 属性
+  Elements.prototype.data = function (suffix, value) {
+    this.attr('data-' + suffix, value);
+  }
+
+  //为元素添加class，多个class用空格分隔
+  Elements.prototype.addClass = function (classNames) {
+    if (classNames) {
+      console.log(classNames.split(' '))
+      $.each(this, function (key, item) {
+        $.each(classNames.split(' '), function (index, className) {
+          item.classList.add(className);
+        });
+      });
+    }
+    return this;
+  };
+
+  //移除元素的指定class，若不传参，则移除所有的class；多个class用空格分隔
+  Elements.prototype.removeClass = function (classNames) {
+    if (classNames) {
+      $.each(this, function (key, item) {
+        item.classList.remove(className);
+      });
+    } else {
+
+    }
+    return this;
+  };
+
+  Elements.prototype.hasClass = function (className) {
+    let has = false;
+    if (className) {
+      $.each(this, function (key, item) {
+        if (item.classList.contains(className)) {
+          has = true;
+          return false;
+        }
+      });
+    }
+    return has;
+  };
+
+  //在元素后添加元素
   Elements.prototype.append = function (nodeString) {
     return this.adjacencyOperate('beforeend', nodeString);
   };
 
+  //在元素前添加元素
   Elements.prototype.prepend = function (nodeString) {
     return this.adjacencyOperate('afterbegin', nodeString);
   };
@@ -84,24 +226,6 @@ var ZhuQuery = (function () {
     }
     return this;
   };
-
-  let Events = function () { };
-
-  Events.prototype.on = function (eventName, handler) {
-    for (let i = 0; i < this.length; i++) {
-      this[i].addEventListener(eventName, handler);
-    }
-    return this;
-  };
-
-  Events.prototype.off = function (eventName, handler) {
-    for (let i = 0; i < this.length; i++) {
-      this[i].removeEventListener(eventName, handler);
-    }
-    return this;
-  };
-
-  Elements.prototype = new Events();
 
   return $;
 })();
