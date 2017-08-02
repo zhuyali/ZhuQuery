@@ -6,15 +6,19 @@ var ZhuQuery = (function () {
 
   //初始化
   $.init = function (selector) {
-    let identifier = selector.charAt(0);
-    switch (identifier) {
-      case '.':
-        return new Elements(document.getElementsByClassName(selector.slice(1)));
-      case '#':
-        return new Elements(document.getElementById(selector.slice(1)));
-      default:
-        return new Elements(document.querySelectorAll(selector));
-    };
+    if (selector instanceof Object) {
+      return new Elements(selector);
+    } else {
+      let identifier = selector.charAt(0);
+      switch (identifier) {
+        case '.':
+          return new Elements(document.getElementsByClassName(selector.slice(1)));
+        case '#':
+          return new Elements(document.getElementById(selector.slice(1)));
+        default:
+          return new Elements(document.querySelectorAll(selector));
+      };
+    }
   };
 
   //封装遍历方法，针对Elements类，定制遍历方式
@@ -43,6 +47,17 @@ var ZhuQuery = (function () {
     return Array.isArray(array);
   };
 
+  $.isWindow = function (object) {
+    return object !== null && object !== undefined && object === object.window;
+  };
+
+  /**
+   * 执行Ajax请求
+   */
+  $.ajax = function (options) {
+    let type = options.type;
+  };
+
   //事件类
   let Events = function () {
     this.on = function (eventName, handler) {
@@ -63,7 +78,7 @@ var ZhuQuery = (function () {
   let Elements = function (elements) {
     Events.call(this);
     if (elements) {
-      if (elements.length >= 0) {
+      if (elements.length >= 0 && (elements instanceof HTMLCollection || elements instanceof NodeList)) {
         for (let i = 0; i < elements.length; i++) {
           this[i] = elements[i];
         }
@@ -119,6 +134,17 @@ var ZhuQuery = (function () {
     return this;
   };
 
+  //显示或隐藏元素
+  Elements.prototype.toggle = function () {
+    $.each(this, function (key, item) {
+      if (getComputedStyle(item, '').getPropertyValue('display') === 'none') {
+        item.style.display = 'block';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  };
+
   //传参时，设置元素的value；不传参时，获取第一个元素的value
   Elements.prototype.val = function (value) {
     if (value) {
@@ -128,6 +154,18 @@ var ZhuQuery = (function () {
       return this;
     } else {
       return this.length === 0 ? null : this[0].value;
+    }
+  };
+
+  //传参时，设置元素的textContent；不传参时，获取第一个元素的textContent
+  Elements.prototype.text = function (value) {
+    if (value) {
+      $.each(this, function (key, item) {
+        item.textContent = value;
+      });
+      return this;
+    } else {
+      return this.length === 0 ? null : this[0].textContent;
     }
   };
 
@@ -175,7 +213,6 @@ var ZhuQuery = (function () {
   //为元素添加class，多个class用空格分隔
   Elements.prototype.addClass = function (classNames) {
     if (classNames) {
-      console.log(classNames.split(' '))
       $.each(this, function (key, item) {
         $.each(classNames.split(' '), function (index, className) {
           item.classList.add(className);
@@ -187,16 +224,19 @@ var ZhuQuery = (function () {
 
   //移除元素的指定class，若不传参，则移除所有的class；多个class用空格分隔
   Elements.prototype.removeClass = function (classNames) {
-    if (classNames) {
-      $.each(this, function (key, item) {
-        item.classList.remove(className);
-      });
-    } else {
-
-    }
+    $.each(this, function (key, item) {
+      if (classNames) {
+        $.each(classNames.split(' '), function (index, className) {
+          item.classList.remove(className);
+        });
+      } else {
+        item.setAttribute('class', '');
+      }
+    });
     return this;
   };
 
+  //判断元素是否拥有某个class
   Elements.prototype.hasClass = function (className) {
     let has = false;
     if (className) {
@@ -208,6 +248,85 @@ var ZhuQuery = (function () {
       });
     }
     return has;
+  };
+
+  //传参时，设置元素的高度；不传参时，获取元素高度
+  Elements.prototype.height = function (value) {
+    if (value) {
+      $.each(this, function (key, item) {
+        if (item instanceof HTMLElement) {
+          if (typeof value === "number" || value.match(/\D/) === null)
+            item.style.height = value + 'px';
+          else {
+            item.style.height = value;
+          }
+        }
+      });
+      return this;
+    } else {
+      let item = this[0];
+      let height;
+      if (item instanceof HTMLDocument) {
+        const body = item.body;
+        const html = item.documentElement;
+        height = Math.max(body.offsetHeight, body.scrollHeight, html.clientHeight, html.offsetHeight, html.scrollHeight);
+      } else if (item instanceof Window) {
+        height = window.innerHeight;
+      } else {
+        height = item.clientHeight;
+      }
+      return height;
+    }
+  };
+
+  //传参时，设置元素的宽度；不传参时，获取元素宽度
+  Elements.prototype.width = function (value) {
+    if (value) {
+      $.each(this, function (key, item) {
+        if (item instanceof HTMLElement) {
+          if (typeof value === "number" || value.match(/\D/) === null)
+            item.style.width = value + 'px';
+          else {
+            item.style.width = value;
+          }
+        }
+      });
+      return this;
+    } else {
+      let item = this[0];
+      let width;
+      if (item instanceof HTMLDocument) {
+        const body = item.body;
+        const html = item.documentElement;
+        width = Math.max(body.offsetWidth, body.scrollWidth, html.clientWidth, html.offsetWidth, html.scrollWidth);
+      } else if (item instanceof Window) {
+        width = window.innerWidth;
+      } else {
+        width = item.clientWidth;
+      }
+      return width;
+    }
+  };
+
+  //当前元素是否匹配给定的选择器
+  Elements.prototype.is = function (selector) {
+    return this.length === 0 ? false : this[0].matches(selector);
+  };
+
+  Elements.prototype.empty = function () {
+    $.each(this, function (key, item) {
+      item.innerHTML = '';
+    });
+    return this;
+  };
+
+  //深度拷贝元素集，返回数组
+  Elements.prototype.clone = function () {
+    let result = [];
+    $.each(this, function (key, item) {
+      result.push(item.cloneNode(true));
+    });
+    return result;
   };
 
   //在元素后添加元素
@@ -224,6 +343,14 @@ var ZhuQuery = (function () {
     for (let i = 0; i < this.length; i++) {
       this[i].insertAdjacentHTML(operation, nodeString);
     }
+    return this;
+  };
+
+  //从DOM中移除元素
+  Elements.prototype.remove = function () {
+    $.each(this, function (key, item) {
+      item.parentNode.removeChild(item);
+    });
     return this;
   };
 
