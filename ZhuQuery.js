@@ -52,10 +52,45 @@ var ZhuQuery = (function () {
   };
 
   /**
-   * 执行Ajax请求
+   * 执行Ajax请求，只接受json格式的数据
    */
-  $.ajax = function (options) {
-    let type = options.type;
+  let formatParams = function (data) {
+    let arr = [];
+    for (name in data) {
+      arr.push(encodeURIComponent(name) + '=' + encodeURIComponent(data[name]));
+    }
+    return arr.join('&');
+  };
+
+  $.ajax = function (option) {
+    let options = option || {};
+    let type = (options.type || 'GET').toUpperCase();
+    let url = options.url;
+    let data = options.data;
+    let success = options.success;
+    let error = options.error;
+    let xhr = new XMLHttpRequest();
+    let params = formatParams(data);
+
+    if (type === 'GET') {
+      xhr.open('GET', (url || '') + '?' + params, true);
+      xhr.send(null);
+    } else if(type === 'POST') {
+      xhr.open('POST', url || '', true);
+      xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+      xhr.send(formatParams(data));
+    }
+
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState == 4) {
+        let status = xhr.status;
+        if (status == 200) {
+          success && success(xhr.responseText);
+        } else {
+          error && error(xhr.status);
+        }
+      }
+    };
   };
 
   //事件类
